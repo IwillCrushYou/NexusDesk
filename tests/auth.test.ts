@@ -4,6 +4,16 @@ import { User, UserRole } from '@prisma/client';
 import { createApp } from '../src/app';
 import { AuthService } from '../src/auth/auth-service';
 import { CreateUserInput, UserRepository } from '../src/auth/user-repository';
+import type { PrismaClient } from '@prisma/client';
+import type { TicketService } from '../src/tickets/ticket-service';
+import type { NotificationRepository } from '../src/notifications/notification-repository';
+import type { AnalyticsService } from '../src/analytics/analytics.service';
+
+// Minimal stubs — only auth routes are exercised in this test suite
+const prismastub        = {} as unknown as PrismaClient;
+const ticketServiceStub = {} as unknown as TicketService;
+const notificationStub  = {} as unknown as NotificationRepository;
+const analyticsStub     = {} as unknown as AnalyticsService;
 
 class InMemoryUsers implements UserRepository {
   private users: User[] = [];
@@ -34,7 +44,7 @@ class InMemoryUsers implements UserRepository {
 
 describe('authentication', () => {
   const users = new InMemoryUsers();
-  const app = createApp(new AuthService(users));
+  const app = createApp(new AuthService(users), prismastub, ticketServiceStub, notificationStub, analyticsStub);
 
   it('registers a user and returns a JWT', async () => {
     const response = await request(app).post('/api/auth/signup').send({

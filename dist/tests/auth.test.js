@@ -8,6 +8,11 @@ const supertest_1 = __importDefault(require("supertest"));
 const client_1 = require("@prisma/client");
 const app_1 = require("../src/app");
 const auth_service_1 = require("../src/auth/auth-service");
+// Minimal stubs — only auth routes are exercised in this test suite
+const prismastub = {};
+const ticketServiceStub = {};
+const notificationStub = {};
+const analyticsStub = {};
 class InMemoryUsers {
     users = [];
     async findByEmail(email) {
@@ -33,7 +38,7 @@ class InMemoryUsers {
 }
 describe('authentication', () => {
     const users = new InMemoryUsers();
-    const app = (0, app_1.createApp)(new auth_service_1.AuthService(users));
+    const app = (0, app_1.createApp)(new auth_service_1.AuthService(users), prismastub, ticketServiceStub, notificationStub, analyticsStub);
     it('registers a user and returns a JWT', async () => {
         const response = await (0, supertest_1.default)(app).post('/api/auth/signup').send({
             name: 'Ada Lovelace',

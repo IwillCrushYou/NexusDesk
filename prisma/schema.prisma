@@ -6,11 +6,33 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
 enum UserRole {
   EMPLOYEE
   AGENT
   ADMIN
 }
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
 
 model User {
   id           String   @id @default(cuid())
@@ -21,6 +43,101 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  // Relations
+  createdTickets  Ticket[]       @relation("TicketCreator")
+  assignedTickets Ticket[]       @relation("TicketAssignee")
+  ticketEvents    TicketEvent[]
+  comments        Comment[]
+  notifications   Notification[]
+
   @@index([role])
   @@map("users")
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  slaDeadline DateTime?      @map("sla_deadline")
+  slaBreached Boolean        @default(false) @map("sla_breached")
+  resolvedAt  DateTime?      @map("resolved_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Foreign keys
+  createdById  String  @map("created_by")
+  assignedToId String? @map("assigned_to")
+
+  // Relations
+  createdBy     User           @relation("TicketCreator",  fields: [createdById],  references: [id])
+  assignedTo    User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  events        TicketEvent[]
+  comments      Comment[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([slaBreached])
+  @@index([createdAt])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@map("tickets")
+}
+
+model TicketEvent {
+  id        String   @id @default(cuid())
+  action    String   // e.g. "STATUS_CHANGED", "ASSIGNED", "SLA_BREACHED"
+  oldValue  String?  @map("old_value")
+  newValue  String?  @map("new_value")
+  timestamp DateTime @default(now())
+
+  // Foreign keys
+  ticketId String @map("ticket_id")
+  actorId  String @map("actor_id")
+
+  // Relations
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId])
+  @@index([actorId])
+  @@map("ticket_events")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Foreign keys
+  ticketId String @map("ticket_id")
+  authorId String @map("author_id")
+
+  // Relations
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+  @@map("comments")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Foreign keys
+  userId   String  @map("user_id")
+  ticketId String? @map("ticket_id")
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read])
+  @@map("notifications")
 }

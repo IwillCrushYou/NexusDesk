@@ -6,51 +6,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createApp = createApp;
 const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
-const zod_1 = require("zod");
-const auth_service_1 = require("./auth/auth-service");
+const morgan_1 = __importDefault(require("morgan"));
 const auth_middleware_1 = require("./auth/auth-middleware");
-const credentialsSchema = zod_1.z.object({
-    name: zod_1.z.string().trim().min(2).optional(),
-    email: zod_1.z.string().trim().email(),
-    password: zod_1.z.string().min(8),
-});
-function createApp(auth) {
+const auth_routes_1 = require("./routes/auth.routes");
+const admin_routes_1 = require("./routes/admin.routes");
+const ticket_routes_1 = require("./routes/ticket.routes");
+const notification_routes_1 = require("./notifications/notification.routes");
+function createApp(auth, prisma, ticketService, notifications, analytics) {
     const app = (0, express_1.default)();
     app.use((0, cors_1.default)());
+    app.use((0, morgan_1.default)('dev'));
     app.use(express_1.default.json());
+    // Health check
     app.get('/health', (_request, response) => response.json({ status: 'ok' }));
-    app.post('/api/auth/signup', async (request, response) => {
-        const parsed = credentialsSchema.safeParse(request.body);
-        if (!parsed.success || !parsed.data.name) {
-            return response.status(400).json({ error: 'Name, valid email, and password of at least 8 characters are required' });
-        }
-        try {
-            return response.status(201).json(await auth.signup(parsed.data));
-        }
-        catch (error) {
-            if (error instanceof auth_service_1.AuthError && error.code === 'EMAIL_EXISTS') {
-                return response.status(409).json({ error: 'Email is already registered' });
-            }
-            return response.status(500).json({ error: 'Unable to create account' });
-        }
-    });
-    app.post('/api/auth/login', async (request, response) => {
-        const parsed = credentialsSchema.omit({ name: true }).safeParse(request.body);
-        if (!parsed.success) {
-            return response.status(400).json({ error: 'Valid email and password are required' });
-        }
-        try {
-            return response.json(await auth.login(parsed.data));
-        }
-        catch (error) {
-            if (error instanceof auth_service_1.AuthError && error.code === 'INVALID_CREDENTIALS') {
-                return response.status(401).json({ error: 'Invalid email or password' });
-            }
-            return response.status(500).json({ error: 'Unable to log in' });
-        }
-    });
-    app.get('/api/me', (0, auth_middleware_1.requireAuth)(auth), async (request, response) => {
+    // Current user (any authenticated role)
+    app.get('/api/me', (0, auth_middleware_1.requireAuth)(auth), (request, response) => {
         return response.json({ user: request.user });
     });
+    // Routers
+    app.use('/api/auth', (0, auth_routes_1.createAuthRouter)(auth));
+    app.use('/api/admin', (0, admin_routes_1.createAdminRouter)(auth, prisma, analytics));
+    app.use('/api/tickets', (0, ticket_routes_1.createTicketRouter)(auth, ticketService));
+    app.use('/api/notifications', (0, notification_routes_1.createNotificationRouter)(auth, notifications));
     return app;
 }
