@@ -63,11 +63,13 @@ export class TicketService {
       assignedToId = agentId;
     }
 
-    const priority     = input.priority ?? TicketPriority.MEDIUM;
-    const slaDeadline  = input.slaDeadline ?? computeSlaDeadline(priority);
+    const { title, description } = input;
+    const priority    = input.priority ?? TicketPriority.MEDIUM;
+    const slaDeadline = input.slaDeadline ?? computeSlaDeadline(priority);
 
     const ticket = await this.tickets.create({
-      ...input,
+      title,
+      description,
       priority,
       slaDeadline,
       createdById: actor.id,

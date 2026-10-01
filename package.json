@@ -8,6 +8,11 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "test": "vitest run",
+    "test:simulate": "tsx scripts/simulate.ts",
+    "test:bash": "./scripts/test-api.sh",
+    "test:load": "./scripts/load-test.sh",
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client run build",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate"
   },
@@ -34,6 +39,7 @@
     "morgan": "^1.12.1",
     "node-cron": "^4.6.0",
     "pg": "^8.23.0",
+    "prisma": "^7.10.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -44,7 +50,6 @@
     "@types/node": "^26.6.3",
     "@types/node-cron": "^3.0.11",
     "@types/supertest": "^7.2.1",
-    "prisma": "^7.10.0",
     "supertest": "^7.3.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",

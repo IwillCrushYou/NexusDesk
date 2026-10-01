@@ -52,7 +52,8 @@ function createTicketRouter(auth, ticketService) {
             return response.status(400).json({ error: parsed.error.flatten() });
         }
         try {
-            const ticket = await ticketService.createTicket(request.user, parsed.data, parsed.data.autoAssign);
+            const { autoAssign, ...ticketInput } = parsed.data;
+            const ticket = await ticketService.createTicket(request.user, ticketInput, autoAssign);
             return response.status(201).json({ ticket });
         }
         catch (error) {

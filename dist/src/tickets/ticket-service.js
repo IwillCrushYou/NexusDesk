@@ -41,10 +41,12 @@ class TicketService {
                 throw new TicketError('NO_AGENTS');
             assignedToId = agentId;
         }
+        const { title, description } = input;
         const priority = input.priority ?? client_1.TicketPriority.MEDIUM;
         const slaDeadline = input.slaDeadline ?? (0, sla_config_1.computeSlaDeadline)(priority);
         const ticket = await this.tickets.create({
-            ...input,
+            title,
+            description,
             priority,
             slaDeadline,
             createdById: actor.id,

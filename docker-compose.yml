@@ -1,10 +1,15 @@
-version: '3.8'
-
 services:
+  web:
+    build: ./client
+    ports:
+      - '${CLIENT_PORT:-5173}:80'
+    depends_on:
+      - api
+
   api:
     build: .
     ports:
-      - '4000:4000'
+      - '${APP_PORT:-4000}:4000'
     environment:
       - DATABASE_URL=postgresql://nexusdesk_app:localpassword@db:5432/nexusdesk
       - JWT_SECRET=local_dev_secret_only
