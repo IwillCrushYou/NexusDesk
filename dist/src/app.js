@@ -14,7 +14,10 @@ const ticket_routes_1 = require("./routes/ticket.routes");
 const notification_routes_1 = require("./notifications/notification.routes");
 function createApp(auth, prisma, ticketService, notifications, analytics) {
     const app = (0, express_1.default)();
-    app.use((0, cors_1.default)());
+    app.use((0, cors_1.default)({
+        origin: process.env.CORS_ORIGIN || '*',
+        credentials: true,
+    }));
     app.use((0, morgan_1.default)('dev'));
     app.use(express_1.default.json());
     // Health check

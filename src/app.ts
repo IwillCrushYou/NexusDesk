@@ -20,7 +20,10 @@ export function createApp(
   analytics: AnalyticsService,
 ) {
   const app = express();
-  app.use(cors());
+  app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true,
+}));
   app.use(morgan('dev'));
   app.use(express.json());
 
