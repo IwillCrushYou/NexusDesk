@@ -24,6 +24,16 @@ const PAGE_TITLES: Record<NavPage, string> = {
   'settings': 'Settings',
 };
 
+function normalizeUser(user: User): User {
+  const name = typeof user.name === 'string' && user.name.trim()
+    ? user.name.trim()
+    : typeof user.email === 'string' && user.email.includes('@')
+      ? user.email.split('@')[0]
+      : 'User';
+
+  return { ...user, name };
+}
+
 const AppInner: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -38,7 +48,7 @@ const AppInner: React.FC = () => {
   // Check existing session on mount
   useEffect(() => {
     api.getMe()
-      .then((res) => setCurrentUser(res.user))
+      .then((res) => setCurrentUser(normalizeUser(res.user)))
       .catch(() => { setToken(null); setCurrentUser(null); })
       .finally(() => setLoadingUser(false));
   }, []);
@@ -69,14 +79,14 @@ const AppInner: React.FC = () => {
             setAuthMode(mode);
             setUnauthView('auth');
           }}
-          onLoginSuccess={(user) => setCurrentUser(user)}
+          onLoginSuccess={(user) => setCurrentUser(normalizeUser(user))}
         />
       );
     }
     return (
       <AuthScreen
         initialMode={authMode}
-        onSuccess={(user) => setCurrentUser(user)}
+        onSuccess={(user) => setCurrentUser(normalizeUser(user))}
         onBackToLanding={() => setUnauthView('landing')}
       />
     );
