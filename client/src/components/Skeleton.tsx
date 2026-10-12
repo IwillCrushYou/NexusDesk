@@ -59,3 +59,4 @@ export const MetricsSkeleton: React.FC = () => (
     ))}
   </div>
 );
+

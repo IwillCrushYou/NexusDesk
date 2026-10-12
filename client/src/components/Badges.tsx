@@ -34,3 +34,4 @@ export const SlaBreachBadge: React.FC = () => (
     SLA
   </span>
 );
+

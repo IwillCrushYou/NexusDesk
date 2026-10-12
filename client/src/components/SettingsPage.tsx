@@ -72,3 +72,4 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser }) => {
     </div>
   );
 };
+
