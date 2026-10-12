@@ -3,9 +3,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require("dotenv/config");
 const client_1 = require("@prisma/client");
+const adapter_pg_1 = require("@prisma/adapter-pg");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const prisma = new client_1.PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set.');
+}
+const adapter = new adapter_pg_1.PrismaPg({ connectionString });
+const prisma = new client_1.PrismaClient({ adapter });
 async function main() {
     // ── Clean existing data ──────────────────────────────────────────────
     await prisma.notification.deleteMany();
@@ -16,59 +23,81 @@ async function main() {
     console.log('🗑️  Cleared existing data.\n');
     // ── Helper: hash password ────────────────────────────────────────────
     const hash = (pw) => bcryptjs_1.default.hashSync(pw, 12);
-    const PASSWORD = 'Demo@123';
+    const PASSWORD = 'Password123!'; // Consistent password for all accounts
     // ── Seed Users ───────────────────────────────────────────────────────
-    const admin = await prisma.user.upsert({
-        where: { email: 'admin@nexusdesk.demo' },
+    // Primary Showcase Personas (Featured on Landing Page & 1-Click Demo)
+    const diana = await prisma.user.upsert({
+        where: { email: 'diana.admin@nexusdesk.local' },
         update: {},
         create: {
-            name: 'Admin User',
-            email: 'admin@nexusdesk.demo',
+            name: 'Diana Prince',
+            email: 'diana.admin@nexusdesk.local',
             passwordHash: hash(PASSWORD),
             role: 'ADMIN',
         },
     });
+    const charlie = await prisma.user.upsert({
+        where: { email: 'charlie.agent@nexusdesk.local' },
+        update: {},
+        create: {
+            name: 'Charlie Agent',
+            email: 'charlie.agent@nexusdesk.local',
+            passwordHash: hash(PASSWORD),
+            role: 'AGENT',
+        },
+    });
+    const alice = await prisma.user.upsert({
+        where: { email: 'alice.emp@nexusdesk.local' },
+        update: {},
+        create: {
+            name: 'Alice Martin',
+            email: 'alice.emp@nexusdesk.local',
+            passwordHash: hash(PASSWORD),
+            role: 'EMPLOYEE',
+        },
+    });
+    // Supporting Team Members (For Multi-agent Distribution & Reports)
     const sarah = await prisma.user.upsert({
-        where: { email: 'sarah@nexusdesk.demo' },
+        where: { email: 'sarah.agent@nexusdesk.local' },
         update: {},
         create: {
             name: 'Sarah Chen',
-            email: 'sarah@nexusdesk.demo',
+            email: 'sarah.agent@nexusdesk.local',
             passwordHash: hash(PASSWORD),
             role: 'AGENT',
         },
     });
     const marcus = await prisma.user.upsert({
-        where: { email: 'marcus@nexusdesk.demo' },
+        where: { email: 'marcus.agent@nexusdesk.local' },
         update: {},
         create: {
             name: 'Marcus Johnson',
-            email: 'marcus@nexusdesk.demo',
+            email: 'marcus.agent@nexusdesk.local',
             passwordHash: hash(PASSWORD),
             role: 'AGENT',
         },
     });
     const alex = await prisma.user.upsert({
-        where: { email: 'alex@nexusdesk.demo' },
+        where: { email: 'alex.emp@nexusdesk.local' },
         update: {},
         create: {
             name: 'Alex Rivera',
-            email: 'alex@nexusdesk.demo',
+            email: 'alex.emp@nexusdesk.local',
             passwordHash: hash(PASSWORD),
             role: 'EMPLOYEE',
         },
     });
     const priya = await prisma.user.upsert({
-        where: { email: 'priya@nexusdesk.demo' },
+        where: { email: 'priya.emp@nexusdesk.local' },
         update: {},
         create: {
             name: 'Priya Sharma',
-            email: 'priya@nexusdesk.demo',
+            email: 'priya.emp@nexusdesk.local',
             passwordHash: hash(PASSWORD),
             role: 'EMPLOYEE',
         },
     });
-    console.log('👤 Seeded 5 users.');
+    console.log('👤 Seeded 7 consistent users (Diana, Charlie, Alice, Sarah, Marcus, Alex, Priya).');
     // ── Helper: stagger dates over the past 5 days ──────────────────────
     const now = new Date();
     const daysAgo = (d, hoursOffset = 0) => {
@@ -90,81 +119,61 @@ async function main() {
         return deadline;
     };
     const ticketDefs = [
+        // 1. Matches Landing Page Row 1 (Alice & Charlie)
         {
-            title: 'VPN connection dropping intermittently',
-            description: 'VPN disconnects every 15-20 minutes during active use. Tried reinstalling the client and switching networks — issue persists. Affecting ability to access internal tools remotely.',
+            title: 'VPN Gateway authentication error across EU-West',
+            description: 'VPN disconnects every 15-20 minutes during active use. Client logs show handshake timeouts against eu-west gateway. Affecting remote access to deployment tools.',
             status: 'IN_PROGRESS',
             priority: 'CRITICAL',
-            createdById: alex.id,
-            assignedToId: sarah.id,
-            createdAt: daysAgo(4, 2),
+            createdById: alice.id,
+            assignedToId: charlie.id,
+            createdAt: daysAgo(1, 2),
             comments: [
                 {
-                    body: `I've reproduced the issue. Looks like the tunnel MTU is misconfigured after last Friday's firewall update. Working on a fix now.`,
-                    authorId: sarah.id,
+                    body: `Reproduced the issue on the cluster firewall. The tunnel MTU configuration is mismatched after last night's gateway firmware update. Working on an updated routing profile now.`,
+                    authorId: charlie.id,
                 },
                 {
-                    body: `Thanks Sarah — in the meantime I'm using the web portal as a workaround but it's quite slow.`,
-                    authorId: alex.id,
+                    body: `Thanks Charlie! In the meantime I'm routing non-critical traffic through the temporary staging tunnel.`,
+                    authorId: alice.id,
                 },
             ],
         },
+        // 2. Matches Landing Page Row 2 (Alex, Unassigned)
         {
-            title: 'Request new monitor for workstation',
-            description: 'My current 22" monitor is showing colour banding and the USB-C port no longer works. Requesting a replacement — preferably a 27" 4K display for design work.',
+            title: 'Provision Docker & Kubernetes access for data science',
+            description: 'Need cluster RBAC roles and container registry pull secrets for the new customer churn ML pipeline. Project repository is already approved in GitLab.',
             status: 'OPEN',
-            priority: 'LOW',
-            createdById: priya.id,
-            createdAt: daysAgo(3, 5),
-            comments: [],
-        },
-        {
-            title: 'Cannot access shared drive S:',
-            description: 'Getting "Access Denied" when trying to open \\\\fileserver\\shared. Was working fine yesterday. Other team members can still access it. Tried remapping the drive — same error.',
-            status: 'RESOLVED',
             priority: 'HIGH',
             createdById: alex.id,
-            assignedToId: marcus.id,
-            resolvedAt: daysAgo(2, 3),
-            createdAt: daysAgo(4, 8),
-            comments: [
-                {
-                    body: `Your AD group membership was accidentally removed during last night's directory sync. I've re-added you — please log out and back in.`,
-                    authorId: marcus.id,
-                },
-                {
-                    body: 'That fixed it, thanks Marcus!',
-                    authorId: alex.id,
-                },
-            ],
-        },
-        {
-            title: 'Outlook calendar sync not working',
-            description: 'Calendar events created on my phone are not syncing to Outlook desktop and vice versa. Exchange account shows as connected. Tried removing and re-adding the account on mobile.',
-            status: 'IN_PROGRESS',
-            priority: 'MEDIUM',
-            createdById: priya.id,
-            assignedToId: sarah.id,
-            createdAt: daysAgo(2, 1),
-            comments: [
-                {
-                    body: `I can see a sync conflict in your Exchange mailbox. Clearing the sync state on the mobile device should resolve this — I'll send you the steps.`,
-                    authorId: sarah.id,
-                },
-            ],
-        },
-        {
-            title: 'Software license renewal - Adobe Creative Suite',
-            description: 'My Adobe Creative Suite license expires next week. Need renewal for Photoshop, Illustrator, and InDesign. Current license key is on the asset management portal.',
-            status: 'OPEN',
-            priority: 'MEDIUM',
-            createdById: alex.id,
-            createdAt: daysAgo(1, 3),
+            createdAt: daysAgo(0, 3),
             comments: [],
         },
+        // 3. Matches Landing Page Row 3 (Alice & Charlie, Resolved)
         {
-            title: 'Laptop overheating and shutting down',
-            description: 'Dell Latitude 5540 shuts down unexpectedly after 30-40 minutes of use. Bottom of the laptop is extremely hot. Fan sounds louder than normal. Asset tag: DL-5540-0892.',
+            title: 'Hardware security key (Yubikey 5C) replacement',
+            description: 'USB-C connector on existing Yubikey is bent and fails intermittent FIDO2 challenge prompts on Okta. Requesting a replacement key.',
+            status: 'RESOLVED',
+            priority: 'MEDIUM',
+            createdById: alice.id,
+            assignedToId: charlie.id,
+            resolvedAt: daysAgo(1, 8),
+            createdAt: daysAgo(2, 4),
+            comments: [
+                {
+                    body: `New Yubikey 5C NFC has been enrolled in the security vault. It is ready for pickup at IT Dispatch Desk B, or can be dispatched via internal mail.`,
+                    authorId: charlie.id,
+                },
+                {
+                    body: `Picked it up and registered my secondary security keys. Working perfectly, thanks!`,
+                    authorId: alice.id,
+                },
+            ],
+        },
+        // 4. Laptop overheating (Priya & Marcus, SLA Breached demonstration)
+        {
+            title: 'Laptop overheating and shutting down during builds',
+            description: 'Dell Latitude 5540 shuts down unexpectedly after 30-40 minutes of heavy compile workloads. Fan runs continuously at max RPM. Asset Tag: DL-5540-0892.',
             status: 'RESOLVED',
             priority: 'CRITICAL',
             createdById: priya.id,
@@ -174,43 +183,102 @@ async function main() {
             createdAt: daysAgo(3, 7),
             comments: [
                 {
-                    body: 'Opened the unit — thermal paste was completely dried out and the fan intake was clogged with dust. Cleaned and re-pasted. Running stress test now.',
+                    body: 'Opened unit: thermal paste was completely degraded and intake vents were obstructed. Cleaned vents, reapplied Noctua paste, and ran thermal stress benchmark.',
                     authorId: marcus.id,
                 },
                 {
-                    body: 'Stress test passed. Laptop is running at normal temps. Took longer than expected due to parts availability — apologies for the delay.',
+                    body: 'Stress benchmark completed with max temps under 78C. Took longer than normal due to awaiting heatsink replacement parts from Dell logistics.',
                     authorId: marcus.id,
                 },
             ],
         },
+        // 5. Shared drive permission error (Alex & Marcus)
         {
-            title: 'Password reset for legacy CRM system',
-            description: 'Locked out of the legacy Siebel CRM system. The "forgot password" link sends a reset email that never arrives. Need manual reset from an admin.',
-            status: 'CLOSED',
+            title: 'Cannot access shared drive S:\\',
+            description: 'Receiving "Access Denied" when attempting to open \\\\nas-prod01\\engineering. Was working normally yesterday. Permissions seem removed.',
+            status: 'RESOLVED',
             priority: 'HIGH',
             createdById: alex.id,
-            assignedToId: sarah.id,
-            resolvedAt: daysAgo(1, 6),
-            createdAt: daysAgo(2, 4),
+            assignedToId: marcus.id,
+            resolvedAt: daysAgo(2, 3),
+            createdAt: daysAgo(3, 8),
             comments: [
                 {
-                    body: `Password has been reset. I've also updated the SMTP relay config for that system so the self-service emails should work going forward.`,
+                    body: `Active Directory synchronization job dropped temporary project group memberships last night. I've restored the group mapping. Please log out and reconnect.`,
+                    authorId: marcus.id,
+                },
+                {
+                    body: 'Drive remapped and accessible. Appreciate the fast turnaround Marcus!',
+                    authorId: alex.id,
+                },
+            ],
+        },
+        // 6. Mobile Exchange calendar sync (Priya & Sarah)
+        {
+            title: 'Outlook calendar sync not updating on iOS',
+            description: 'Calendar entries created on mobile do not sync to macOS Outlook app and vice versa. Exchange account shows connected status but changes stall in queue.',
+            status: 'IN_PROGRESS',
+            priority: 'MEDIUM',
+            createdById: priya.id,
+            assignedToId: sarah.id,
+            createdAt: daysAgo(1, 5),
+            comments: [
+                {
+                    body: `Identified a corrupt partnership sync token in Exchange ActiveSync profile. Resetting the device sync partnership on the Exchange server now.`,
                     authorId: sarah.id,
                 },
             ],
         },
+        // 7. Monitor request (Alice, Unassigned in Open queue)
         {
-            title: 'Set up new employee workstation - Engineering',
-            description: 'New engineer joining the Platform team on Monday. Need full workstation setup: dual monitors, docking station, standard engineering software stack (VS Code, Docker Desktop, Postman, Node.js LTS). Manager: David Kim.',
+            title: 'Request secondary 27" 4K monitor for workstation',
+            description: 'Current 22" 1080p display has dead pixel clusters and lacks USB-C Power Delivery. Requesting standard engineering display upgrade for multi-window development.',
+            status: 'OPEN',
+            priority: 'LOW',
+            createdById: alice.id,
+            createdAt: daysAgo(2, 1),
+            comments: [],
+        },
+        // 8. New employee onboard setup (Priya & Sarah)
+        {
+            title: 'Set up new employee workstation - Platform Engineering',
+            description: 'New Site Reliability Engineer joining next week. Standard equipment: M3 Pro MacBook, dual 4K monitors, Yubikey, and base engineering profiles.',
             status: 'IN_PROGRESS',
             priority: 'MEDIUM',
             createdById: priya.id,
-            assignedToId: marcus.id,
-            createdAt: daysAgo(1, 7),
+            assignedToId: sarah.id,
+            createdAt: daysAgo(0, 6),
             comments: [
                 {
-                    body: 'Hardware has been allocated from inventory. Starting software installation and domain join now. Should be ready by end of day Thursday.',
-                    authorId: marcus.id,
+                    body: 'Hardware assigned from inventory. MDM enrollment profile pushed with baseline developer tooling and security agents.',
+                    authorId: sarah.id,
+                },
+            ],
+        },
+        // 9. Figma license renewal (Alex, Unassigned)
+        {
+            title: 'Software license renewal - Figma Enterprise seat',
+            description: 'Annual license for Figma Organization seat expires at the end of the month. Manager approval PO already attached.',
+            status: 'OPEN',
+            priority: 'LOW',
+            createdById: alex.id,
+            createdAt: daysAgo(0, 8),
+            comments: [],
+        },
+        // 10. Legacy CRM password reset (Alice & Charlie, Closed)
+        {
+            title: 'Password reset for legacy CRM billing portal',
+            description: 'Self-service password reset email for billing portal is blocked by corporate spam filter. Need manual admin credential reset.',
+            status: 'CLOSED',
+            priority: 'HIGH',
+            createdById: alice.id,
+            assignedToId: charlie.id,
+            resolvedAt: daysAgo(2, 6),
+            createdAt: daysAgo(3, 2),
+            comments: [
+                {
+                    body: `Temporary credential generated and sent via encrypted keybase message. I have also added the billing portal SMTP relay IP to our spam filter whitelist.`,
+                    authorId: charlie.id,
                 },
             ],
         },
@@ -262,7 +330,7 @@ async function main() {
                     newValue: def.assignedToId,
                     timestamp: assignedAt,
                     ticketId: ticket.id,
-                    actorId: admin.id,
+                    actorId: diana.id,
                 },
             });
             eventCount++;
@@ -279,7 +347,7 @@ async function main() {
                     newValue: 'IN_PROGRESS',
                     timestamp: inProgressAt,
                     ticketId: ticket.id,
-                    actorId: def.assignedToId ?? admin.id,
+                    actorId: def.assignedToId ?? diana.id,
                 },
             });
             eventCount++;
@@ -292,7 +360,7 @@ async function main() {
                         newValue: 'RESOLVED',
                         timestamp: def.resolvedAt,
                         ticketId: ticket.id,
-                        actorId: def.assignedToId ?? admin.id,
+                        actorId: def.assignedToId ?? diana.id,
                     },
                 });
                 eventCount++;
@@ -308,7 +376,7 @@ async function main() {
                         newValue: 'CLOSED',
                         timestamp: closedAt,
                         ticketId: ticket.id,
-                        actorId: admin.id,
+                        actorId: diana.id,
                     },
                 });
                 eventCount++;
@@ -361,17 +429,19 @@ async function main() {
     console.log(`📋 Seeded ${eventCount} ticket events.`);
     console.log(`💬 Seeded ${commentCount} comments.`);
     console.log(`🔔 Seeded ${notificationCount} notifications.`);
-    console.log('\n────────────────────────────────────────────');
-    console.log('  🚀 NexusDesk Demo Accounts');
-    console.log('────────────────────────────────────────────');
-    console.log('  Role      | Email                    | Password');
-    console.log('  --------- | ------------------------ | --------');
-    console.log('  Admin     | admin@nexusdesk.demo     | Demo@123');
-    console.log('  Agent     | sarah@nexusdesk.demo     | Demo@123');
-    console.log('  Agent     | marcus@nexusdesk.demo    | Demo@123');
-    console.log('  Employee  | alex@nexusdesk.demo      | Demo@123');
-    console.log('  Employee  | priya@nexusdesk.demo     | Demo@123');
-    console.log('────────────────────────────────────────────\n');
+    console.log('\n──────────────────────────────────────────────────────────────');
+    console.log('  🚀 NexusDesk Consistent Accounts');
+    console.log('──────────────────────────────────────────────────────────────');
+    console.log('  Role      | Name             | Email                          | Password');
+    console.log('  --------- | ---------------- | ------------------------------ | --------');
+    console.log(`  Admin     | Diana Prince     | diana.admin@nexusdesk.local    | ${PASSWORD}`);
+    console.log(`  Agent     | Charlie Agent    | charlie.agent@nexusdesk.local  | ${PASSWORD}`);
+    console.log(`  Employee  | Alice Martin     | alice.emp@nexusdesk.local      | ${PASSWORD}`);
+    console.log(`  Agent     | Sarah Chen       | sarah.agent@nexusdesk.local    | ${PASSWORD}`);
+    console.log(`  Agent     | Marcus Johnson   | marcus.agent@nexusdesk.local   | ${PASSWORD}`);
+    console.log(`  Employee  | Alex Rivera      | alex.emp@nexusdesk.local       | ${PASSWORD}`);
+    console.log(`  Employee  | Priya Sharma     | priya.emp@nexusdesk.local      | ${PASSWORD}`);
+    console.log('──────────────────────────────────────────────────────────────\n');
 }
 main()
     .then(async () => {

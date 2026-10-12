@@ -74,6 +74,7 @@ describe('authentication', () => {
             .set('Authorization', `Bearer ${login.body.token}`);
         expect(unauthenticated.status).toBe(401);
         expect(authenticated.status).toBe(200);
+        expect(authenticated.body.user.name).toBe('Ada Lovelace');
         expect(authenticated.body.user.role).toBe('EMPLOYEE');
     });
 });

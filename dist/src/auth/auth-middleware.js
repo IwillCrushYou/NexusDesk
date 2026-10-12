@@ -23,7 +23,7 @@ function requireAuth(auth) {
             if (!user) {
                 return response.status(401).json({ error: 'User no longer exists' });
             }
-            request.user = { id: user.id, role: user.role, email: user.email };
+            request.user = { id: user.id, name: user.name, role: user.role, email: user.email };
             return next();
         }
         catch {
