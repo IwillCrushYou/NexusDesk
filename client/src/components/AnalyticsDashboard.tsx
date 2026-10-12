@@ -1,26 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { DashboardStats } from '../types';
+import { DashboardStats, TicketSummary } from '../types';
 import {
   AreaChart,
   Area,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
-import { Clock, ShieldAlert, CheckCircle2, Inbox, RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw, Clock, ShieldAlert } from 'lucide-react';
+import { MetricsSkeleton } from './Skeleton';
 
 export const AnalyticsDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAnalytics = async () => {
@@ -30,230 +27,140 @@ export const AnalyticsDashboard: React.FC = () => {
       const res = await api.getAnalytics();
       setStats(res.analytics);
     } catch (err: any) {
-      setError(err.message || 'Failed to load analytics dashboard');
+      setError(err.message || 'Failed to load analytics');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, []);
+  useEffect(() => { fetchAnalytics(); }, []);
 
-  if (loading && !stats) {
-    return (
-      <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
-        Loading admin analytics...
-      </div>
-    );
-  }
+  if (loading && !stats) return <MetricsSkeleton />;
 
   if (error) {
     return (
-      <div
-        style={{
-          background: 'var(--danger-light)',
-          color: '#f87171',
-          padding: '16px 20px',
-          borderRadius: 8,
-          fontSize: 14,
-        }}
-      >
-        {error}
+      <div className="alert alert-error">
+        <ShieldAlert size={14} />
+        <span>{error}</span>
+        <button className="btn btn-ghost btn-sm" onClick={fetchAnalytics} style={{ marginLeft: 'auto' }}>Retry</button>
       </div>
     );
   }
 
   if (!stats) return null;
 
-  // Prepare PieChart data for Status Breakdown
-  const statusPieData = [
-    { name: 'Open', value: stats.statusBreakdown.OPEN, color: '#3b82f6' },
-    { name: 'In Progress', value: stats.statusBreakdown.IN_PROGRESS, color: '#f59e0b' },
-    { name: 'Resolved', value: stats.statusBreakdown.RESOLVED, color: '#10b981' },
-    { name: 'Closed', value: stats.statusBreakdown.CLOSED, color: '#6b7280' },
-  ].filter((item) => item.value > 0);
-
-  // Reverse volume array for chronological chart order
   const volumeChartData = [...stats.volumeByDay].reverse();
 
   return (
     <div>
-      {/* Top Banner: Cache freshness & refresh */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: '12px 18px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-          <Zap size={16} style={{ color: 'var(--warning)' }} />
-          <span>
-            Aggregations cached for 60s &bull; Snapshot at:{' '}
-            <strong style={{ color: 'var(--text-main)' }}>
-              {new Date(stats.cachedAt).toLocaleTimeString()}
-            </strong>
-          </span>
-        </div>
-
+      {/* Cache Banner */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, fontSize: 12, color: 'var(--text-secondary)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Clock size={13} />
+          Snapshot at{' '}
+          <strong style={{ color: 'var(--text-primary)' }}>
+            {new Date(stats.cachedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </strong>
+          {' '}· cached 60s
+        </span>
         <button
-          className="btn-secondary"
+          className="btn btn-secondary btn-sm"
           onClick={fetchAnalytics}
-          style={{ padding: '6px 12px', fontSize: 13 }}
           disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh Stats
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          Refresh
         </button>
       </div>
 
-      {/* KPI Stat Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="stat-title">SLA Breach Rate</span>
-            <ShieldAlert size={20} style={{ color: stats.slaBreachRate > 0 ? 'var(--danger)' : 'var(--success)' }} />
-          </div>
-          <div className="stat-value" style={{ color: stats.slaBreachRate > 20 ? 'var(--danger)' : 'inherit' }}>
+      {/* KPIs */}
+      <div className="metrics-row">
+        <div className="metric-item">
+          <div className="metric-label">Open</div>
+          <div className="metric-value">{stats.statusBreakdown.OPEN}</div>
+          <div className="metric-sub">active tickets</div>
+        </div>
+        <div className="metric-item">
+          <div className="metric-label">In Progress</div>
+          <div className="metric-value">{stats.statusBreakdown.IN_PROGRESS}</div>
+          <div className="metric-sub">being handled</div>
+        </div>
+        <div className="metric-item">
+          <div className="metric-label">Resolved</div>
+          <div className="metric-value">{stats.statusBreakdown.RESOLVED + stats.statusBreakdown.CLOSED}</div>
+          <div className="metric-sub">completed</div>
+        </div>
+        <div className="metric-item">
+          <div className="metric-label">SLA Breach Rate</div>
+          <div className="metric-value" style={{ color: stats.slaBreachRate > 20 ? 'var(--danger)' : undefined }}>
             {stats.slaBreachRate}%
           </div>
-          <span className="stat-subtitle">Overdue resolution threshold</span>
-        </div>
-
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="stat-title">Avg Resolution Time</span>
-            <Clock size={20} style={{ color: 'var(--info)' }} />
+          <div className="metric-sub">
+            {stats.avgResolutionHours != null ? `avg ${stats.avgResolutionHours}h resolution` : 'no resolutions yet'}
           </div>
-          <div className="stat-value">
-            {stats.avgResolutionHours !== null ? `${stats.avgResolutionHours}h` : 'N/A'}
-          </div>
-          <span className="stat-subtitle">Time from creation to resolution</span>
-        </div>
-
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="stat-title">Active Tickets</span>
-            <Inbox size={20} style={{ color: 'var(--warning)' }} />
-          </div>
-          <div className="stat-value">
-            {stats.statusBreakdown.OPEN + stats.statusBreakdown.IN_PROGRESS}
-          </div>
-          <span className="stat-subtitle">Open & in-progress queue</span>
-        </div>
-
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="stat-title">Total Resolved</span>
-            <CheckCircle2 size={20} style={{ color: 'var(--success)' }} />
-          </div>
-          <div className="stat-value">
-            {stats.statusBreakdown.RESOLVED + stats.statusBreakdown.CLOSED}
-          </div>
-          <span className="stat-subtitle">Completed tickets</span>
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: 20 }}>
-        {/* Chart 1: Ticket Volume Over Time */}
-        <div className="chart-card">
-          <h3 className="chart-title">Ticket Volume (Last 30 Days)</h3>
-          <div style={{ height: 260 }}>
+      {/* Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16 }}>
+        {/* Volume over time */}
+        <div className="ticket-table-container" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--text-primary)' }}>
+            Ticket Volume — Last 30 Days
+          </div>
+          <div style={{ height: 200 }}>
             {volumeChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={volumeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={volumeChartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="20%" stopColor="#8BE0C1" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#8BE0C1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
-                  <YAxis stroke="#9ca3af" fontSize={11} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="date" stroke="var(--text-disabled)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-disabled)" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: 6 }}
-                    labelStyle={{ color: '#f9fafb' }}
+                    contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', borderRadius: 6, fontSize: 12 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                    itemStyle={{ color: 'var(--text-secondary)' }}
                   />
-                  <Area type="monotone" dataKey="count" stroke="#4f46e5" fillOpacity={1} fill="url(#colorCount)" />
+                  <Area type="monotone" dataKey="count" stroke="#8BE0C1" strokeWidth={1.5} fill="url(#areaFill)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-subtle)' }}>No historical data</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-disabled)', fontSize: 13 }}>
+                No data yet
+              </div>
             )}
           </div>
         </div>
 
-        {/* Chart 2: Status Breakdown Pie */}
-        <div className="chart-card">
-          <h3 className="chart-title">Status Breakdown</h3>
-          <div style={{ height: 260 }}>
-            {statusPieData.length > 0 ? (
+        {/* Agent workload */}
+        {stats.ticketsPerAgent.length > 0 && (
+          <div className="ticket-table-container" style={{ padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--text-primary)' }}>
+              Agent Workload
+            </div>
+            <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {statusPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                <BarChart data={stats.ticketsPerAgent} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="agentName" stroke="var(--text-disabled)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-disabled)" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: 6 }}
+                    contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', borderRadius: 6, fontSize: 12 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
                   />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-subtle)' }}>No tickets found</div>
-            )}
-          </div>
-        </div>
-
-        {/* Chart 3: Agent Workload Distribution */}
-        <div className="chart-card" style={{ gridColumn: '1 / -1' }}>
-          <h3 className="chart-title">Support Agent Workload Distribution</h3>
-          <div style={{ height: 260 }}>
-            {stats.ticketsPerAgent.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.ticketsPerAgent} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="agentName" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={11} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: 6 }}
-                  />
-                  <Legend />
-                  <Bar dataKey="openCount" name="Open / In Progress" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="resolvedCount" name="Resolved / Closed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="openCount" name="Open" fill="#8BE0C1" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="resolvedCount" name="Resolved" fill="var(--border)" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-subtle)' }}>No agent activity data</div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
