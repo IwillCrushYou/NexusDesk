@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { api, setToken } from '../api';
 import { User } from '../types';
-import { Lock, Mail, User as UserIcon, AlertCircle, Eye, EyeOff, Ticket } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, AlertCircle, Eye, EyeOff, Ticket, ArrowLeft } from 'lucide-react';
 
 interface AuthScreenProps {
   onSuccess: (user: User) => void;
+  onBackToLanding?: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
-  const [isSignup, setIsSignup] = useState(false);
+export const AuthScreen: React.FC<AuthScreenProps> = ({
+  onSuccess,
+  onBackToLanding,
+  initialMode = 'login',
+}) => {
+  const [isSignup, setIsSignup] = useState(initialMode === 'signup');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +49,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   return (
     <div className="auth-screen">
       <div className="auth-card">
+        {onBackToLanding && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onBackToLanding}
+            style={{ marginBottom: 16, padding: '4px 6px', color: 'var(--text-secondary)' }}
+          >
+            <ArrowLeft size={14} />
+            <span>Back to overview</span>
+          </button>
+        )}
+
         {/* Logo */}
         <div className="auth-logo">
           <div className="auth-logo-mark">

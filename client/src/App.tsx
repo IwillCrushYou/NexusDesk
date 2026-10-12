@@ -3,6 +3,7 @@ import { User } from './types';
 import { api, setToken } from './api';
 import { Sidebar, Topbar, NavPage } from './components/Sidebar';
 import { AuthScreen } from './components/AuthModal';
+import { LandingPage } from './components/LandingPage';
 import { TicketList } from './components/TicketList';
 import { CreateTicketModal } from './components/CreateTicketModal';
 import { TicketDetailModal } from './components/TicketDetailModal';
@@ -26,6 +27,8 @@ const PAGE_TITLES: Record<NavPage, string> = {
 const AppInner: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [unauthView, setUnauthView] = useState<'landing' | 'auth'>('landing');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [currentPage, setCurrentPage] = useState<NavPage>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -44,6 +47,7 @@ const AppInner: React.FC = () => {
     setToken(null);
     setCurrentUser(null);
     setCurrentPage('overview');
+    setUnauthView('landing');
     setSidebarOpen(false);
   };
 
@@ -58,7 +62,24 @@ const AppInner: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <AuthScreen onSuccess={(user) => setCurrentUser(user)} />;
+    if (unauthView === 'landing') {
+      return (
+        <LandingPage
+          onOpenAuth={(mode) => {
+            setAuthMode(mode);
+            setUnauthView('auth');
+          }}
+          onLoginSuccess={(user) => setCurrentUser(user)}
+        />
+      );
+    }
+    return (
+      <AuthScreen
+        initialMode={authMode}
+        onSuccess={(user) => setCurrentUser(user)}
+        onBackToLanding={() => setUnauthView('landing')}
+      />
+    );
   }
 
   const renderPage = () => {
