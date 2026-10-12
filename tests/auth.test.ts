@@ -86,6 +86,7 @@ describe('authentication', () => {
 
     expect(unauthenticated.status).toBe(401);
     expect(authenticated.status).toBe(200);
+    expect(authenticated.body.user.name).toBe('Ada Lovelace');
     expect(authenticated.body.user.role).toBe('EMPLOYEE');
   });
 });
