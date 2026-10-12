@@ -1,14 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { TicketWithRelations, TicketStatus, User } from '../types';
-import { X, Clock, User as UserIcon, ShieldAlert, CheckCircle, ArrowRight, History } from 'lucide-react';
+import { X, ChevronRight, History, AlertTriangle, User as UserIcon, Clock, CheckCircle } from 'lucide-react';
+import { StatusBadge, PriorityBadge, SlaBreachBadge } from './Badges';
+import { useToast } from './ToastProvider';
+import { Skeleton } from './Skeleton';
 
 interface TicketDetailModalProps {
-  ticketId: string | null;
+  ticketId: string;
   currentUser: User;
   onClose: () => void;
   onStatusUpdated: () => void;
 }
+
+const formatDateTime = (dateStr?: string | null) => {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getAllowedTransitions = (status: TicketStatus): TicketStatus[] => {
+  switch (status) {
+    case 'OPEN': return ['IN_PROGRESS'];
+    case 'IN_PROGRESS': return ['RESOLVED', 'OPEN'];
+    case 'RESOLVED': return ['CLOSED', 'IN_PROGRESS'];
+    case 'CLOSED': return ['OPEN'];
+    default: return [];
+  }
+};
+
+const TRANSITION_LABELS: Record<TicketStatus, string> = {
+  OPEN: 'Reopen',
+  IN_PROGRESS: 'Start Progress',
+  RESOLVED: 'Mark Resolved',
+  CLOSED: 'Close',
+};
 
 export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   ticketId,
@@ -17,19 +48,19 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   onStatusUpdated,
 }) => {
   const [ticket, setTicket] = useState<TicketWithRelations | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchTicket = async () => {
-    if (!ticketId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await api.getTicket(ticketId);
       setTicket(res.ticket);
     } catch (err: any) {
-      setError(err.message || 'Failed to load ticket details');
+      setError(err.message || 'Failed to load ticket');
     } finally {
       setLoading(false);
     }
@@ -39,35 +70,25 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     fetchTicket();
   }, [ticketId]);
 
-  if (!ticketId) return null;
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   const canManage = currentUser.role === 'AGENT' || currentUser.role === 'ADMIN';
 
-  // Allowed transitions per state machine
-  const getAllowedTransitions = (status: TicketStatus): TicketStatus[] => {
-    switch (status) {
-      case 'OPEN':
-        return ['IN_PROGRESS'];
-      case 'IN_PROGRESS':
-        return ['RESOLVED', 'OPEN'];
-      case 'RESOLVED':
-        return ['CLOSED', 'IN_PROGRESS'];
-      case 'CLOSED':
-        return ['OPEN'];
-      default:
-        return [];
-    }
-  };
-
   const handleStatusChange = async (newStatus: TicketStatus) => {
+    if (!ticket) return;
     setUpdating(true);
-    setError(null);
     try {
       const res = await api.updateStatus(ticketId, newStatus);
       setTicket(res.ticket);
       onStatusUpdated();
+      toast('success', 'Status updated', `Ticket moved to ${newStatus.replace('_', ' ')}`);
     } catch (err: any) {
-      setError(err.message || 'Status transition failed');
+      toast('error', 'Update failed', err.message);
     } finally {
       setUpdating(false);
     }
@@ -75,220 +96,208 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   const handleAutoAssign = async () => {
     setUpdating(true);
-    setError(null);
     try {
       const res = await api.autoAssign(ticketId);
       setTicket(res.ticket);
       onStatusUpdated();
+      toast('success', 'Ticket assigned', `Assigned to ${res.ticket.assignedTo?.name}`);
     } catch (err: any) {
-      setError(err.message || 'Auto-assignment failed');
+      toast('error', 'Assignment failed', err.message);
     } finally {
       setUpdating(false);
     }
   };
 
-  const formatDateTime = (dateStr?: string | null) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
-    <div className="modal-overlay">
-      <div className="modal-dialog" style={{ maxWidth: 650 }}>
+    <div
+      className="modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal-dialog modal-dialog-lg">
+        {/* Header */}
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontFamily: 'monospace' }}>
-              #{ticket?.id.slice(-6)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span className="text-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 }}>
+              #{ticket?.id.slice(-6).toUpperCase() ?? '···'}
             </span>
             {ticket && (
               <>
-                <span className={`badge badge-status-${ticket.status.toLowerCase()}`}>
-                  {ticket.status.replace('_', ' ')}
-                </span>
-                <span className={`badge badge-priority-${ticket.priority.toLowerCase()}`}>
-                  {ticket.priority}
-                </span>
-                {ticket.slaBreached && (
-                  <span className="badge-breach">SLA BREACHED</span>
-                )}
+                <StatusBadge status={ticket.status} />
+                <PriorityBadge priority={ticket.priority} />
+                {ticket.slaBreached && <SlaBreachBadge />}
               </>
             )}
           </div>
-          <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
-            <X size={20} />
+          <button className="btn btn-ghost btn-icon" onClick={onClose} title="Close">
+            <X size={17} />
           </button>
         </div>
 
         <div className="modal-body">
           {error && (
-            <div
-              style={{
-                background: 'var(--danger-light)',
-                color: '#f87171',
-                padding: '10px 14px',
-                borderRadius: 6,
-                marginBottom: 16,
-                fontSize: 13,
-              }}
-            >
-              {error}
+            <div className="alert alert-error">
+              <AlertTriangle size={14} />
+              <span>{error}</span>
             </div>
           )}
 
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading ticket details...
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Skeleton height={24} width="70%" />
+              <Skeleton height={14} />
+              <Skeleton height={14} width="85%" />
+              <Skeleton height={14} width="60%" />
+              <div style={{ height: 16 }} />
+              <div className="meta-grid">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="meta-item">
+                    <Skeleton height={10} width={80} style={{ marginBottom: 6 }} />
+                    <Skeleton height={14} width={120} />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : ticket ? (
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, lineHeight: 1.3 }}>
                 {ticket.title}
               </h2>
-
-              <p style={{ color: 'var(--text-muted)', fontSize: 14, whiteSpace: 'pre-wrap', marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.6, marginBottom: 20 }}>
                 {ticket.description}
               </p>
 
-              {/* Metadata Grid */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: 12,
-                  padding: 14,
-                  background: 'var(--bg-card)',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  marginBottom: 20,
-                }}
-              >
-                <div>
-                  <span style={{ color: 'var(--text-subtle)', display: 'block', fontSize: 11 }}>CREATED BY</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <UserIcon size={14} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontWeight: 500 }}>{ticket.createdBy.name}</span>
+              {/* Metadata */}
+              <div className="meta-grid">
+                <div className="meta-item">
+                  <div className="meta-label">Requester</div>
+                  <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <UserIcon size={13} style={{ color: 'var(--text-secondary)' }} />
+                    {ticket.createdBy.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {ticket.createdBy.email}
                   </div>
                 </div>
 
-                <div>
-                  <span style={{ color: 'var(--text-subtle)', display: 'block', fontSize: 11 }}>ASSIGNED AGENT</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <UserIcon size={14} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontWeight: 500 }}>
-                      {ticket.assignedTo ? ticket.assignedTo.name : 'Unassigned'}
+                <div className="meta-item">
+                  <div className="meta-label">Assigned Agent</div>
+                  <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <UserIcon size={13} style={{ color: 'var(--text-secondary)' }} />
+                    <span style={{ color: ticket.assignedTo ? undefined : 'var(--text-disabled)' }}>
+                      {ticket.assignedTo?.name ?? 'Unassigned'}
                     </span>
                     {!ticket.assignedTo && canManage && (
                       <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 11, padding: '1px 6px', height: 'auto' }}
                         onClick={handleAutoAssign}
                         disabled={updating}
-                        style={{ fontSize: 11, color: 'var(--primary)', textDecoration: 'underline', marginLeft: 6 }}
                       >
-                        Auto-Assign
+                        Auto-assign
                       </button>
                     )}
                   </div>
+                  {ticket.assignedTo && (
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      {ticket.assignedTo.email}
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <span style={{ color: 'var(--text-subtle)', display: 'block', fontSize: 11 }}>SLA DEADLINE</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Clock size={14} style={{ color: ticket.slaBreached ? 'var(--danger)' : 'var(--text-muted)' }} />
-                    <span style={{ color: ticket.slaBreached ? 'var(--danger)' : 'inherit', fontWeight: ticket.slaBreached ? 700 : 400 }}>
+                <div className="meta-item">
+                  <div className="meta-label">SLA Deadline</div>
+                  <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clock size={13} style={{ color: ticket.slaBreached ? 'var(--danger)' : 'var(--text-secondary)' }} />
+                    <span style={{ color: ticket.slaBreached ? 'var(--danger)' : undefined, fontWeight: ticket.slaBreached ? 600 : undefined }}>
                       {formatDateTime(ticket.slaDeadline)}
                     </span>
                   </div>
                 </div>
 
-                <div>
-                  <span style={{ color: 'var(--text-subtle)', display: 'block', fontSize: 11 }}>RESOLVED TIMESTAMP</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <CheckCircle size={14} style={{ color: 'var(--success)' }} />
-                    <span>{formatDateTime(ticket.resolvedAt)}</span>
+                <div className="meta-item">
+                  <div className="meta-label">Timeline</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div className="meta-value" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Created</span>
+                      {formatDateTime(ticket.createdAt)}
+                    </div>
+                    {ticket.resolvedAt && (
+                      <div className="meta-value" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <CheckCircle size={11} style={{ color: 'var(--success)' }} />
+                        <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Resolved</span>
+                        {formatDateTime(ticket.resolvedAt)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* State Machine Transition Actions */}
+              {/* Actions */}
               {canManage && (
-                <div
-                  style={{
-                    padding: 14,
-                    background: 'rgba(79, 70, 229, 0.05)',
-                    border: '1px solid rgba(79, 70, 229, 0.2)',
-                    borderRadius: 8,
-                    marginBottom: 20,
-                  }}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)', marginBottom: 8 }}>
-                    State Machine Actions (Next Allowed States):
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                    Actions
                   </div>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {getAllowedTransitions(ticket.status).map((nextStatus) => (
                       <button
                         key={nextStatus}
-                        className="btn-primary"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => handleStatusChange(nextStatus)}
                         disabled={updating}
-                        style={{ fontSize: 12, padding: '6px 12px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                       >
-                        Move to {nextStatus.replace('_', ' ')}
-                        <ArrowRight size={14} />
+                        {TRANSITION_LABELS[nextStatus]}
+                        <ChevronRight size={13} />
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Audit Event Timeline */}
+              {/* Audit Timeline */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <History size={16} style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Audit History ({ticket.events?.length || 0})
+                  <History size={14} style={{ color: 'var(--text-secondary)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    History
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>
+                    ({ticket.events?.length ?? 0})
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {ticket.events && ticket.events.length > 0 ? (
-                    ticket.events.map((evt) => (
-                      <div
-                        key={evt.id}
-                        style={{
-                          padding: '8px 12px',
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 6,
-                          fontSize: 12,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                            {evt.action}
-                          </span>
-                          {evt.oldValue && evt.newValue && (
-                            <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>
-                              ({evt.oldValue} ➔ {evt.newValue})
-                            </span>
-                          )}
+                {ticket.events && ticket.events.length > 0 ? (
+                  <div className="timeline">
+                    {ticket.events.map((evt) => (
+                      <div key={evt.id} className="timeline-item">
+                        <div className="timeline-dot">
+                          <History size={10} />
                         </div>
-                        <span style={{ color: 'var(--text-subtle)', fontSize: 11 }}>
-                          {formatDateTime(evt.timestamp)}
-                        </span>
+                        <div className="timeline-content">
+                          <div className="timeline-action">
+                            <span style={{ fontWeight: 600 }}>{evt.action}</span>
+                            {evt.actor && (
+                              <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}> by {evt.actor.name}</span>
+                            )}
+                          </div>
+                          {evt.oldValue && evt.newValue && (
+                            <div className="timeline-change">
+                              <span style={{ color: 'var(--text-disabled)' }}>{evt.oldValue}</span>
+                              <ChevronRight size={11} style={{ color: 'var(--text-disabled)' }} />
+                              <span>{evt.newValue}</span>
+                            </div>
+                          )}
+                          <div className="timeline-meta">{formatDateTime(evt.timestamp)}</div>
+                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div style={{ color: 'var(--text-subtle)', fontSize: 12 }}>No audit events logged yet.</div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text-disabled)' }}>
+                    No history events yet.
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
